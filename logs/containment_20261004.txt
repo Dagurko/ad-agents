@@ -1,0 +1,14 @@
+== Sun Oct  4 10:30:40 GMT 2026 ==
+
+-- 1. Ollama listening sockets (expect 127.0.0.1 only) --
+COMMAND   PID  USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
+ollama  80928 dagur    3u  IPv4 0x5e82072fc1df88fb      0t0  TCP 127.0.0.1:11434 (LISTEN)
+
+-- 2. Ollama unreachable from the LAN address (expect failure) --
+unreachable via 192.168.50.180 (OK)
+
+-- 3. Every network call in the code (expect only the Ollama URL in llm.py) --
+src/llm.py:13:    r = requests.post(f"{URL}/api/chat", json=body, timeout=300)
+
+-- 4. OLLAMA_URL default --
+3:URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")

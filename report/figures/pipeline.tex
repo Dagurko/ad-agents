@@ -1,0 +1,72 @@
+% Experiment pipeline (Phases A, B, C). Included from main.tex with \input{figures/pipeline.tex}.
+% Requires: \usepackage{tikz} \usetikzlibrary{positioning,arrows.meta,fit,backgrounds}
+\begin{tikzpicture}[
+    font=\small,
+    >={Stealth[length=2mm]},
+    node distance=6mm and 15mm,
+    agent/.style={draw, rounded corners=2pt, minimum width=22mm, minimum height=9mm,
+                  align=center, fill=blue!8},
+    defense/.style={draw, rounded corners=2pt, minimum width=22mm, minimum height=9mm,
+                  align=center, fill=orange!15},
+    data/.style={draw, cylinder, shape border rotate=90, aspect=0.15,
+                  minimum width=24mm, minimum height=10mm, align=center, fill=gray!10},
+    proc/.style={draw, minimum width=20mm, minimum height=8mm, align=center},
+    phase/.style={draw=gray!60, dashed, rounded corners=4pt, inner sep=3mm},
+    plabel/.style={font=\small\bfseries, anchor=north west, inner sep=1.5mm},
+    note/.style={font=\footnotesize, text=gray!40!black, align=left}
+  ]
+
+  % ---------------- Phase A ----------------
+  \node[agent] (attA) {Attacker\\(LLM)};
+  \node[proc, right=of attA] (harness) {Python\\harness};
+  \node[agent, right=of harness] (target) {HelpBot\\(target)};
+  \node[proc, right=8mm of target] (check) {Canary\\check};
+
+  \draw[->] ([yshift=1.5mm]attA.east) -- node[above, font=\footnotesize]{message} ([yshift=1.5mm]harness.west);
+  \draw[<-] ([yshift=-1.5mm]attA.east) -- node[below, font=\footnotesize]{reply} ([yshift=-1.5mm]harness.west);
+  \draw[->] ([yshift=1.5mm]harness.east) -- node[above, font=\footnotesize]{message} ([yshift=1.5mm]target.west);
+  \draw[<-] ([yshift=-1.5mm]harness.east) -- node[below, font=\footnotesize]{reply} ([yshift=-1.5mm]target.west);
+  \draw[->] (target) -- (check);
+
+  \node[data, below=8mm of harness] (log) {attack log\\[-1pt]\footnotesize 100 episodes, 509 msgs};
+  \draw[->] (harness) -- node[right, font=\footnotesize]{every turn} (log);
+
+
+  % ---------------- Phase B ----------------
+  \node[data, below=17mm of log] (logB) {attack log\\[-1pt]\footnotesize 509 msgs (label: attack)};
+  \node[data, below=5mm of logB] (benign) {benign set\\[-1pt]\footnotesize 78 msgs (label: benign)};
+  \coordinate (mid) at ($(logB.south)!0.5!(benign.north)$);
+  \node[defense, right=16mm of logB] (regex) {Regex\\filter};
+  \node[defense, right=16mm of benign] (llmdef) {LLM\\defender};
+  \node[proc, right=12mm of $(regex)!0.5!(llmdef)$] (metrics) {Metrics\\[-1pt]\footnotesize recall, false alarms,\\[-2pt]\footnotesize McNemar (paired)};
+
+  \foreach \src in {logB, benign}
+    \foreach \dst in {regex, llmdef}
+      \draw[->] (\src.east) -- (\dst.west);
+  \draw[->] (regex.east) -- (metrics);
+  \draw[->] (llmdef.east) -- (metrics);
+  \draw[->, dashed, gray] (log.south) -- node[right, font=\footnotesize, text=gray!40!black]{same messages, replayed} (logB.north);
+
+
+  % ---------------- Phase C ----------------
+  \node[agent, below=13mm of benign, xshift=-6mm] (attC) {Attacker\\(LLM)};
+  \node[defense, right=14mm of attC] (defC) {Defense\\\footnotesize regex \emph{or} LLM};
+  \node[agent, right=14mm of defC] (targetC) {HelpBot\\(target)};
+  \draw[->] (attC) -- node[above, font=\footnotesize]{message} (defC);
+  \draw[->] (defC) -- node[above, font=\footnotesize]{pass} (targetC);
+  \draw[->] (defC.south) -- ++(0,-6mm) -| node[pos=0.25, above, font=\footnotesize]{blocked: feedback} (attC.south);
+  \node[note, below=2mm of targetC] (noteC) {repeated in rounds,\\equal for both defenses};
+
+
+  % ---------------- aligned phase boxes ----------------
+  \coordinate (L) at ($(attA.west)+(-4mm,0)$);
+  \coordinate (R) at ($(metrics.east)+(4mm,0)$);
+  \begin{scope}[on background layer]
+    \node[phase, fit={($(L|-attA.north)+(0,7mm)$)($(R|-log.south)+(0,-2mm)$)}, inner sep=0pt] (boxA) {};
+    \node[phase, fit={($(L|-logB.north)+(0,7mm)$)($(R|-benign.south)+(0,-2mm)$)}, inner sep=0pt] (boxB) {};
+    \node[phase, fit={($(L|-attC.north)+(0,7mm)$)($(R|-noteC.south)+(0,-2mm)$)}, inner sep=0pt] (boxC) {};
+  \end{scope}
+  \node[plabel] at (boxA.north west) {Phase A: generate (no defense)};
+  \node[plabel, anchor=north east] at (boxB.north east) {Phase B: replay (H1)};
+  \node[plabel] at (boxC.north west) {Phase C: adaptive (H2)};
+\end{tikzpicture}
